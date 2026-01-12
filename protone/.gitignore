@@ -1,0 +1,30 @@
+# Virtual Environment
+crewai/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Output Files
+final_makale_gemini.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# API Keys (if stored in separate files)
+.env
+*.key

@@ -1,0 +1,324 @@
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  Bot, 
+  MessageSquare, 
+  Zap, 
+  CheckCircle, 
+  Clock,
+  ArrowRight,
+  Sparkles,
+  Search,
+  FileText,
+  Brain,
+  Send,
+  Loader2
+} from 'lucide-react'
+import { useAppStore } from '../store/useAppStore'
+
+const agentColors = [
+  { bg: 'from-blue-500 to-cyan-500', glow: 'glow-blue', ring: 'ring-blue-500' },
+  { bg: 'from-purple-500 to-pink-500', glow: 'glow-purple', ring: 'ring-purple-500' },
+  { bg: 'from-green-500 to-emerald-500', glow: 'glow-green', ring: 'ring-green-500' },
+  { bg: 'from-orange-500 to-yellow-500', glow: '', ring: 'ring-orange-500' },
+]
+
+const getLogIcon = (type) => {
+  switch (type) {
+    case 'agent_started': return <Zap className="w-4 h-4" />
+    case 'agent_thinking': return <Brain className="w-4 h-4" />
+    case 'agent_action': return <Search className="w-4 h-4" />
+    case 'agent_completed': return <CheckCircle className="w-4 h-4" />
+    case 'agent_communication': return <Send className="w-4 h-4" />
+    case 'crew_started': return <Sparkles className="w-4 h-4" />
+    case 'crew_completed': return <FileText className="w-4 h-4" />
+    default: return <MessageSquare className="w-4 h-4" />
+  }
+}
+
+export default function ExecutionPage() {
+  const navigate = useNavigate()
+  const logsEndRef = useRef(null)
+  const {
+    agents,
+    tasks,
+    logs,
+    isRunning,
+    status,
+    result,
+    startCrew
+  } = useAppStore()
+  
+  const [activeAgentIdx, setActiveAgentIdx] = useState(-1)
+  const [connections, setConnections] = useState([])
+  
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [logs])
+  
+  useEffect(() => {
+    // Find active agent from logs
+    const lastAgentLog = [...logs].reverse().find(log => log.agent)
+    if (lastAgentLog) {
+      const idx = agents.findIndex(a => a.name === lastAgentLog.agent)
+      setActiveAgentIdx(idx)
+    }
+    
+    // Create connection when agents communicate
+    const commLog = [...logs].reverse().find(log => log.type === 'agent_communication')
+    if (commLog) {
+      const fromIdx = agents.findIndex(a => a.name === commLog.from)
+      const toIdx = agents.findIndex(a => a.name === commLog.to)
+      if (fromIdx !== -1 && toIdx !== -1) {
+        setConnections(prev => [...prev, { from: fromIdx, to: toIdx, id: Date.now() }])
+      }
+    }
+  }, [logs, agents])
+  
+  const handleStart = async () => {
+    await startCrew()
+  }
+  
+  const handleViewResult = () => {
+    navigate('/result')
+  }
+  
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="grid grid-cols-2 gap-6">
+        {/* Left: Agent Visualization */}
+        <div className="space-y-6">
+          <div className="glass rounded-2xl p-6 border border-dark-700">
+            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <Bot className="w-6 h-6 text-primary-500" />
+              Ajan Görselleştirmesi
+            </h2>
+            
+            {/* Agent Network */}
+            <div className="relative h-[400px]">
+              {/* Connection Lines */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                {connections.map((conn, idx) => {
+                  const fromX = 100 + (conn.from * 150)
+                  const toX = 100 + (conn.to * 150)
+                  return (
+                    <motion.line
+                      key={conn.id}
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: 1, opacity: 1 }}
+                      transition={{ duration: 0.5 }}
+                      x1={fromX}
+                      y1={120}
+                      x2={toX}
+                      y2={120}
+                      stroke="#0ea5e9"
+                      strokeWidth="2"
+                      className="connection-line"
+                    />
+                  )
+                })}
+              </svg>
+              
+              {/* Agent Nodes */}
+              <div className="flex items-start justify-center gap-8 pt-8">
+                {agents.map((agent, idx) => {
+                  const isActive = idx === activeAgentIdx
+                  const color = agentColors[idx % agentColors.length]
+                  const agentLogs = logs.filter(l => l.agent === agent.name)
+                  const isCompleted = agentLogs.some(l => l.type === 'agent_completed')
+                  
+                  return (
+                    <motion.div
+                      key={agent.id}
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: idx * 0.1 }}
+                      className="flex flex-col items-center"
+                    >
+                      {/* Agent Node */}
+                      <motion.div
+                        animate={{
+                          scale: isActive ? [1, 1.1, 1] : 1,
+                          boxShadow: isActive 
+                            ? ['0 0 0 rgba(14, 165, 233, 0)', '0 0 30px rgba(14, 165, 233, 0.5)', '0 0 0 rgba(14, 165, 233, 0)']
+                            : 'none'
+                        }}
+                        transition={{ repeat: isActive ? Infinity : 0, duration: 2 }}
+                        className={`
+                          relative w-20 h-20 rounded-2xl flex items-center justify-center
+                          bg-gradient-to-br ${color.bg}
+                          ${isActive ? color.glow : ''}
+                          ${isCompleted ? 'ring-2 ring-green-500' : ''}
+                        `}
+                      >
+                        <Bot className="w-10 h-10 text-white" />
+                        
+                        {/* Pulse ring when active */}
+                        {isActive && (
+                          <div className="absolute inset-0 rounded-2xl">
+                            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${color.bg} opacity-50 animate-ping`} />
+                          </div>
+                        )}
+                        
+                        {/* Completed checkmark */}
+                        {isCompleted && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center"
+                          >
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </motion.div>
+                        )}
+                      </motion.div>
+                      
+                      {/* Agent Info */}
+                      <div className="mt-4 text-center">
+                        <h3 className="font-semibold text-white">{agent.name}</h3>
+                        <p className="text-xs text-dark-400">{agent.role}</p>
+                      </div>
+                      
+                      {/* Status indicator */}
+                      <div className={`
+                        mt-2 px-3 py-1 rounded-full text-xs
+                        ${isActive 
+                          ? 'bg-primary-500/20 text-primary-400' 
+                          : isCompleted 
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-dark-700 text-dark-400'
+                        }
+                      `}>
+                        {isActive ? 'Çalışıyor...' : isCompleted ? 'Tamamlandı' : 'Bekliyor'}
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+              
+              {/* Task Progress */}
+              <div className="absolute bottom-0 left-0 right-0 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="w-4 h-4 text-dark-400" />
+                  <span className="text-sm text-dark-400">Görev İlerlemesi</span>
+                </div>
+                <div className="h-2 bg-dark-800 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ 
+                      width: status === 'completed' 
+                        ? '100%' 
+                        : `${Math.min((logs.filter(l => l.type === 'agent_completed').length / tasks.length) * 100, 100)}%`
+                    }}
+                    className="h-full bg-gradient-to-r from-primary-500 to-purple-600"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Start/View Result Button */}
+          <div className="text-center">
+            {!isRunning && status !== 'completed' && status !== 'running' && (
+              <button
+                onClick={handleStart}
+                className="px-8 py-4 rounded-xl bg-gradient-to-r from-primary-500 to-purple-600 text-white font-semibold flex items-center gap-2 mx-auto hover:shadow-lg hover:shadow-primary-500/25 transition-all"
+              >
+                <Zap className="w-5 h-5" />
+                Ekibi Başlat
+              </button>
+            )}
+            
+            {isRunning && (
+              <div className="flex items-center justify-center gap-3 text-primary-400">
+                <Loader2 className="w-6 h-6 animate-spin" />
+                <span>Ajanlar çalışıyor...</span>
+              </div>
+            )}
+            
+            {status === 'completed' && (
+              <button
+                onClick={handleViewResult}
+                className="px-8 py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold flex items-center gap-2 mx-auto hover:shadow-lg hover:shadow-green-500/25 transition-all"
+              >
+                <FileText className="w-5 h-5" />
+                Sonucu Görüntüle
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {/* Right: Live Log */}
+        <div className="glass rounded-2xl p-6 border border-dark-700 flex flex-col h-[600px]">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <MessageSquare className="w-6 h-6 text-primary-500" />
+            Canlı Log
+          </h2>
+          
+          <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+            <AnimatePresence>
+              {logs.length === 0 && (
+                <div className="text-center py-12 text-dark-500">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Ekip başladığında loglar burada görünecek</p>
+                </div>
+              )}
+              
+              {logs.map((log, idx) => {
+                const agentIdx = agents.findIndex(a => a.name === log.agent)
+                const color = agentColors[agentIdx % agentColors.length]
+                
+                return (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="message-bubble"
+                  >
+                    <div className={`
+                      p-4 rounded-xl border
+                      ${log.type === 'error' 
+                        ? 'bg-red-500/10 border-red-500/30' 
+                        : log.type === 'crew_completed'
+                          ? 'bg-green-500/10 border-green-500/30'
+                          : 'bg-dark-800/50 border-dark-700'
+                      }
+                    `}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={`
+                          w-6 h-6 rounded-lg flex items-center justify-center
+                          ${log.agent ? `bg-gradient-to-br ${color?.bg || 'from-gray-500 to-gray-600'}` : 'bg-dark-700'}
+                        `}>
+                          {getLogIcon(log.type)}
+                        </div>
+                        {log.agent && (
+                          <span className="font-medium text-sm text-white">{log.agent}</span>
+                        )}
+                        <span className="text-xs text-dark-500 ml-auto">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className={`text-sm ${log.type === 'error' ? 'text-red-400' : 'text-dark-300'}`}>
+                        {log.message}
+                      </p>
+                      {log.thought && (
+                        <p className="text-xs text-dark-500 mt-1 italic">"{log.thought}"</p>
+                      )}
+                      {log.tool && (
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded bg-dark-700 text-xs text-dark-400">
+                          🔧 {log.tool}
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
+            <div ref={logsEndRef} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
