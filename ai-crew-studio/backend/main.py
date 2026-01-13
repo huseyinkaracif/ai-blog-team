@@ -291,14 +291,19 @@ async def run_crew(session_id: str, topic: str):
         
         result = await crew_manager.run(topic)
         
-        session.result = result
+        # Clean and format the result
+        result_text = str(result) if result else "No result generated"
+        
+        session.result = result_text
         session.status = "completed"
         session.completed_at = datetime.now().isoformat()
         
+        # Send completion message with result
         await manager.send_message(session_id, {
             "type": "crew_completed",
-            "result": result,
-            "message": "İşlem tamamlandı!"
+            "result": result_text,
+            "message": "İşlem tamamlandı!",
+            "result_length": len(result_text)
         })
         
     except Exception as e:

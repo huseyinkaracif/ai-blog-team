@@ -25,6 +25,11 @@ export default function ResultPage() {
     reset 
   } = useAppStore()
   
+  // Debug: Log result state
+  console.log('ResultPage - result:', result ? `${result.substring(0, 100)}...` : 'NULL')
+  console.log('ResultPage - status:', status)
+  console.log('ResultPage - logs count:', logs.length)
+  
   const handleCopy = () => {
     if (result) {
       navigator.clipboard.writeText(result)
@@ -34,16 +39,25 @@ export default function ResultPage() {
   }
   
   const handleDownload = () => {
-    if (result) {
+    if (!result) {
+      alert('Henüz sonuç yok!')
+      return
+    }
+    
+    try {
       const blob = new Blob([result], { type: 'text/markdown' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `ai-crew-output-${new Date().toISOString().split('T')[0]}.md`
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+      a.download = `ai-crew-output-${timestamp}.md`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Download failed:', error)
+      alert('İndirme başarısız oldu!')
     }
   }
   
@@ -189,17 +203,25 @@ export default function ResultPage() {
         
         {result ? (
           <div className="prose prose-invert max-w-none">
-            <div className="whitespace-pre-wrap text-dark-200 leading-relaxed">
+            <div className="whitespace-pre-wrap text-dark-200 leading-relaxed font-mono text-sm">
               {result}
             </div>
           </div>
         ) : (
           <div className="text-center py-12">
             <FileText className="w-16 h-16 mx-auto mb-4 text-dark-600" />
-            <p className="text-dark-400">Henüz sonuç yok</p>
-            <p className="text-sm text-dark-500 mt-1">
-              Önce ekibi çalıştırın
+            <p className="text-dark-400 mb-2">Henüz sonuç yok</p>
+            <p className="text-sm text-dark-500 mb-4">
+              {status === 'completed' ? 'Sonuç oluşturulamadı, lütfen tekrar deneyin' : 'Önce ekibi çalıştırın'}
             </p>
+            {status !== 'completed' && (
+              <button
+                onClick={() => navigate('/execution')}
+                className="px-6 py-2 rounded-xl bg-primary-500 text-white hover:bg-primary-600 transition-all"
+              >
+                Ekibi Çalıştır
+              </button>
+            )}
           </div>
         )}
       </motion.div>

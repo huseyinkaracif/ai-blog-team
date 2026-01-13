@@ -148,8 +148,12 @@ export const useAppStore = create((set, get) => ({
 
       case "crew_completed":
         console.log("Crew completed!", message);
+        console.log(
+          "Result received:",
+          message.result?.substring(0, 100) + "..."
+        );
         set({
-          result: message.result,
+          result: message.result || "Sonuç alınamadı",
           isRunning: false,
           status: "completed",
           currentStep: 5,
