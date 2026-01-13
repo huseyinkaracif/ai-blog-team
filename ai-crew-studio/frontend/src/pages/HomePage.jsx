@@ -159,7 +159,7 @@ export default function HomePage() {
           </button>
           
           <a
-            href="https://github.com"
+            href="https://github.com/huseyinkaracif/ai-blog-team"
             target="_blank"
             rel="noopener noreferrer"
             className="px-6 py-3 rounded-lg border border-dark-700 text-dark-400 font-medium hover:bg-dark-800 hover:text-white transition-all"

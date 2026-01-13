@@ -38,12 +38,21 @@ export default function ResultPage() {
   
   const displayResult = result || getResultFromLogs()
   
-  // Auto-fetch result if not available but status is completed
+  // Always fetch result on page load
   useEffect(() => {
-    if (status === 'completed' && !displayResult && sessionId) {
-      handleRefresh()
+    const fetchOnMount = async () => {
+      if (sessionId) {
+        setLoading(true)
+        try {
+          await fetchResult()
+        } catch (err) {
+          console.error('Failed to fetch result on mount:', err)
+        }
+        setLoading(false)
+      }
     }
-  }, [status, displayResult, sessionId])
+    fetchOnMount()
+  }, [])
   
   // Debug: Log result state
   console.log('ResultPage - result from state:', result ? `${result.substring(0, 100)}...` : 'NULL')
