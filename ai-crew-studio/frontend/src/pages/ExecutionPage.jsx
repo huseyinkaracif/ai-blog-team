@@ -35,7 +35,12 @@ const getLogIcon = (type) => {
     case 'agent_completed': return <CheckCircle className="w-4 h-4" />
     case 'agent_communication': return <Send className="w-4 h-4" />
     case 'crew_started': return <Sparkles className="w-4 h-4" />
-    case 'crew_completed': return <FileText className="w-4 h-4" />
+    case 'crew_running': return <Loader2 className="w-4 h-4" />
+    case 'task_executing': return <FileText className="w-4 h-4" />
+    case 'task_created': return <CheckCircle className="w-4 h-4" />
+    case 'agent_created': return <Bot className="w-4 h-4" />
+    case 'crew_completed': return <PartyPopper className="w-4 h-4" />
+    case 'execution_error': return <AlertCircle className="w-4 h-4" />
     default: return <MessageSquare className="w-4 h-4" />
   }
 }
@@ -291,11 +296,17 @@ export default function ExecutionPage() {
         </div>
         
         {/* Right: Live Log */}
-        <div className="glass rounded-2xl p-6 border border-dark-700 flex flex-col h-[600px]">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <MessageSquare className="w-6 h-6 text-primary-500" />
-            Canlı Log
-          </h2>
+        <div className="glass rounded-2xl p-6 border border-dark-700 flex flex-col" style={{ height: '650px' }}>
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-dark-700">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <MessageSquare className="w-6 h-6 text-primary-500" />
+              Canlı Log
+            </h2>
+            <div className="flex items-center gap-2 text-xs text-dark-400">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+              {logs.length} mesaj
+            </div>
+          </div>
           
           <div className="flex-1 overflow-y-auto space-y-3 pr-2">
             <AnimatePresence>
@@ -310,23 +321,37 @@ export default function ExecutionPage() {
                 const agentIdx = agents.findIndex(a => a.name === log.agent)
                 const color = agentColors[agentIdx % agentColors.length]
                 
+                // Determine log styling
+                let bgClass = 'bg-dark-800/50 border-dark-700'
+                let textClass = 'text-dark-300'
+                
+                if (log.type === 'error' || log.type === 'execution_error') {
+                  bgClass = 'bg-red-500/10 border-red-500/30'
+                  textClass = 'text-red-400'
+                } else if (log.type === 'crew_completed') {
+                  bgClass = 'bg-green-500/10 border-green-500/30'
+                  textClass = 'text-green-400'
+                } else if (log.type === 'agent_started' || log.type === 'task_executing') {
+                  bgClass = 'bg-blue-500/10 border-blue-500/30'
+                  textClass = 'text-blue-300'
+                } else if (log.type === 'agent_completed') {
+                  bgClass = 'bg-green-500/10 border-green-500/30'
+                  textClass = 'text-green-300'
+                } else if (log.type === 'crew_running' || log.type === 'crew_started') {
+                  bgClass = 'bg-purple-500/10 border-purple-500/30'
+                  textClass = 'text-purple-300'
+                }
+                
                 return (
                   <motion.div
-                    key={idx}
+                    key={`${log.timestamp}-${idx}`}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3 }}
                     className="message-bubble"
                   >
-                    <div className={`
-                      p-4 rounded-xl border
-                      ${log.type === 'error' 
-                        ? 'bg-red-500/10 border-red-500/30' 
-                        : log.type === 'crew_completed'
-                          ? 'bg-green-500/10 border-green-500/30'
-                          : 'bg-dark-800/50 border-dark-700'
-                      }
-                    `}>
-                      <div className="flex items-center gap-2 mb-1">
+                    <div className={`p-4 rounded-xl border ${bgClass}`}>
+                      <div className="flex items-center gap-2 mb-2">
                         <div className={`
                           w-6 h-6 rounded-lg flex items-center justify-center
                           ${log.agent ? `bg-gradient-to-br ${color?.bg || 'from-gray-500 to-gray-600'}` : 'bg-dark-700'}
@@ -336,20 +361,37 @@ export default function ExecutionPage() {
                         {log.agent && (
                           <span className="font-medium text-sm text-white">{log.agent}</span>
                         )}
+                        {log.task_number && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-dark-700 text-dark-400">
+                            Görev {log.task_number}/{log.total_tasks}
+                          </span>
+                        )}
                         <span className="text-xs text-dark-500 ml-auto">
-                          {new Date(log.timestamp).toLocaleTimeString()}
+                          {new Date(log.timestamp).toLocaleTimeString('tr-TR')}
                         </span>
                       </div>
-                      <p className={`text-sm ${log.type === 'error' ? 'text-red-400' : 'text-dark-300'}`}>
+                      <p className={`text-sm ${textClass} leading-relaxed`}>
                         {log.message}
                       </p>
                       {log.thought && (
-                        <p className="text-xs text-dark-500 mt-1 italic">"{log.thought}"</p>
+                        <p className="text-xs text-dark-500 mt-2 italic pl-3 border-l-2 border-dark-600">
+                          "{log.thought}"
+                        </p>
                       )}
                       {log.tool && (
-                        <span className="inline-block mt-1 px-2 py-0.5 rounded bg-dark-700 text-xs text-dark-400">
+                        <span className="inline-block mt-2 px-2 py-1 rounded bg-dark-700 text-xs text-primary-400">
                           🔧 {log.tool}
                         </span>
+                      )}
+                      {log.action && (
+                        <p className="text-xs text-dark-400 mt-1">
+                          ⚡ {log.action}
+                        </p>
+                      )}
+                      {log.result_length && (
+                        <p className="text-xs text-dark-400 mt-1">
+                          📊 Sonuç: {log.result_length} karakter
+                        </p>
                       )}
                     </div>
                   </motion.div>

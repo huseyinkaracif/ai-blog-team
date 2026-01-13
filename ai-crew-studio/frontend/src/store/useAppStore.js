@@ -64,9 +64,16 @@ export const useAppStore = create((set, get) => ({
   setModel: (model) => set({ selectedModel: model }),
 
   addLog: (log) =>
-    set((state) => ({
-      logs: [...state.logs, { ...log, timestamp: new Date().toISOString() }],
-    })),
+    set((state) => {
+      const newLog = {
+        ...log,
+        timestamp: log.timestamp || new Date().toISOString(),
+      };
+      const updatedLogs = [...state.logs, newLog];
+      // Sort logs by timestamp to ensure chronological order
+      updatedLogs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      return { logs: updatedLogs };
+    }),
 
   clearLogs: () => set({ logs: [] }),
 
@@ -141,8 +148,12 @@ export const useAppStore = create((set, get) => ({
       case "agent_completed":
       case "agent_communication":
       case "crew_started":
+      case "crew_running":
+      case "task_executing":
       case "task_created":
       case "agent_created":
+      case "execution_error":
+        console.log(`Log: [${message.type}]`, message.message || message);
         addLog(message);
         break;
 

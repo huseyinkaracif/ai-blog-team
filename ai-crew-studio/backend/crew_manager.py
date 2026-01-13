@@ -273,17 +273,41 @@ class CrewManager:
         loop = asyncio.get_event_loop()
         
         def execute_crew():
-            # Simulate step-by-step execution with callbacks
+            import sys
+            import io
+            from contextlib import redirect_stdout
+            
+            # Track agent activities by monitoring each task
             for i, (task, task_config) in enumerate(zip(self.tasks, self.task_configs)):
                 agent_config = next(
                     ac for ac in self.agent_configs 
                     if ac.name == task_config.agent_name
                 )
+                
                 self.callback.agent_started(agent_config.name, task.description[:100])
+                
+                # Log task start
+                self.callback.log("task_executing", {
+                    "agent": agent_config.name,
+                    "task_number": i + 1,
+                    "total_tasks": len(self.tasks),
+                    "message": f"📝 Görev {i+1}/{len(self.tasks)} çalıştırılıyor..."
+                })
             
             # Actually run the crew
-            result = crew.kickoff(inputs={'topic': topic})
-            return str(result)
+            try:
+                result = crew.kickoff(inputs={'topic': topic})
+                
+                # Mark all agents as completed
+                for agent_config in self.agent_configs:
+                    self.callback.agent_completed(agent_config.name, "Görev tamamlandı")
+                    
+                return str(result)
+            except Exception as e:
+                self.callback.log("execution_error", {
+                    "message": f"❌ Çalıştırma hatası: {str(e)}"
+                })
+                raise
         
         try:
             result = await loop.run_in_executor(None, execute_crew)
