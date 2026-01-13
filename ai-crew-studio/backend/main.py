@@ -103,7 +103,7 @@ app.add_middleware(
 
 # Available Gemini Models
 AVAILABLE_MODELS = [
-    {"id": "gemini-2.5-flash-preview-05-20", "name": "Gemini 2.5 Flash", "description": "HIZLI VE AKILLI", "badge": "Önerilen"},
+    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "description": "HIZLI VE AKILLI", "badge": "Önerilen"},
     {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "description": "İKİNCİ NESİL ÇALIŞKAN", "badge": ""},
     {"id": "gemini-2.5-pro-preview-06-05", "name": "Gemini 2.5 Pro", "description": "EN AKILLI", "badge": "Pro"},
     {"id": "gemini-2.5-flash-lite-preview-06-17", "name": "Gemini 2.5 Flash Lite", "description": "EN DENGELİ", "badge": ""},

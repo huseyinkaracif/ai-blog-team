@@ -11,7 +11,7 @@ export const useAppStore = create((set, get) => ({
   // Data
   agents: [],
   tasks: [],
-  selectedModel: "gemini-2.5-flash-preview-05-20",
+  selectedModel: "gemini-2.5-flash",
   topic: "",
 
   // Execution state
@@ -320,7 +320,7 @@ export const useAppStore = create((set, get) => ({
       status: "idle",
       agents: [],
       tasks: [],
-      selectedModel: "gemini-2.5-flash-preview-05-20",
+      selectedModel: "gemini-2.5-flash",
       topic: "",
       logs: [],
       result: null,
