@@ -279,12 +279,30 @@ export const useAppStore = create((set, get) => ({
 
   fetchResult: async () => {
     const { sessionId } = get();
-    if (!sessionId) return null;
+    if (!sessionId) {
+      console.log("fetchResult: No session ID");
+      return null;
+    }
 
     try {
+      console.log(
+        "fetchResult: Fetching from",
+        `${API_BASE}/sessions/${sessionId}/result`
+      );
       const res = await fetch(`${API_BASE}/sessions/${sessionId}/result`);
       const data = await res.json();
-      set({ result: data.result, status: data.status });
+      console.log("fetchResult: Received data:", {
+        status: data.status,
+        hasResult: !!data.result,
+        resultLength: data.result?.length || 0,
+        resultPreview: data.result?.substring(0, 100) || "NULL",
+      });
+
+      if (data.result) {
+        set({ result: data.result, status: data.status });
+      } else {
+        set({ status: data.status });
+      }
       return data;
     } catch (err) {
       console.error("Failed to fetch result:", err);

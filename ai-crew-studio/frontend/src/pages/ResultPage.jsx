@@ -8,44 +8,77 @@ import {
   RotateCcw,
   Clock,
   Bot,
-  Sparkles
+  Sparkles,
+  RefreshCw,
+  Loader2
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/useAppStore'
 
 export default function ResultPage() {
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
+  const [loading, setLoading] = useState(false)
   const { 
     result, 
     agents, 
     tasks, 
     logs, 
     status,
-    reset 
+    sessionId,
+    reset,
+    fetchResult
   } = useAppStore()
   
+  // Try to get result from logs if not in state
+  const getResultFromLogs = () => {
+    const completedLog = logs.find(l => l.type === 'crew_completed' && l.result)
+    return completedLog?.result || null
+  }
+  
+  const displayResult = result || getResultFromLogs()
+  
+  // Auto-fetch result if not available but status is completed
+  useEffect(() => {
+    if (status === 'completed' && !displayResult && sessionId) {
+      handleRefresh()
+    }
+  }, [status, displayResult, sessionId])
+  
   // Debug: Log result state
-  console.log('ResultPage - result:', result ? `${result.substring(0, 100)}...` : 'NULL')
+  console.log('ResultPage - result from state:', result ? `${result.substring(0, 100)}...` : 'NULL')
+  console.log('ResultPage - result from logs:', getResultFromLogs() ? 'FOUND' : 'NULL')
+  console.log('ResultPage - displayResult:', displayResult ? `${displayResult.substring(0, 100)}...` : 'NULL')
   console.log('ResultPage - status:', status)
   console.log('ResultPage - logs count:', logs.length)
   
+  const handleRefresh = async () => {
+    if (!sessionId) return
+    setLoading(true)
+    try {
+      await fetchResult()
+    } catch (err) {
+      console.error('Failed to fetch result:', err)
+    }
+    setLoading(false)
+  }
+  
   const handleCopy = () => {
-    if (result) {
-      navigator.clipboard.writeText(result)
+    if (displayResult) {
+      navigator.clipboard.writeText(displayResult)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
   }
   
   const handleDownload = () => {
-    if (!result) {
+    if (!displayResult) {
       alert('Henüz sonuç yok!')
       return
     }
     
     try {
-      const blob = new Blob([result], { type: 'text/markdown' })
+      const blob = new Blob([displayResult], { type: 'text/markdown' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -194,34 +227,66 @@ export default function ResultPage() {
         <div className="flex items-center gap-2 mb-4 pb-4 border-b border-dark-700">
           <FileText className="w-5 h-5 text-primary-500" />
           <h2 className="font-semibold text-white">Üretilen İçerik</h2>
-          {result && (
+          {displayResult && (
             <span className="ml-auto text-sm text-dark-400">
-              {result.length} karakter
+              {displayResult.length} karakter
             </span>
+          )}
+          {sessionId && (
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="ml-2 p-1.5 rounded-lg hover:bg-dark-700 text-dark-400 hover:text-white transition-colors"
+              title="Sonucu yenile"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+            </button>
           )}
         </div>
         
-        {result ? (
+        {displayResult ? (
           <div className="prose prose-invert max-w-none">
-            <div className="whitespace-pre-wrap text-dark-200 leading-relaxed font-mono text-sm">
-              {result}
+            <div className="whitespace-pre-wrap text-dark-200 leading-relaxed font-mono text-sm bg-dark-800/50 p-4 rounded-lg max-h-[600px] overflow-y-auto">
+              {displayResult}
             </div>
           </div>
         ) : (
           <div className="text-center py-12">
             <FileText className="w-16 h-16 mx-auto mb-4 text-dark-600" />
-            <p className="text-dark-400 mb-2">Henüz sonuç yok</p>
+            <p className="text-dark-400 mb-2">Sonuç alınamadı</p>
             <p className="text-sm text-dark-500 mb-4">
-              {status === 'completed' ? 'Sonuç oluşturulamadı, lütfen tekrar deneyin' : 'Önce ekibi çalıştırın'}
+              {status === 'completed' 
+                ? 'WebSocket bağlantısı kesilmiş olabilir. Yenilemeyi deneyin.' 
+                : 'Önce ekibi çalıştırın'}
             </p>
-            {status !== 'completed' && (
-              <button
-                onClick={() => navigate('/execution')}
-                className="px-6 py-2 rounded-xl bg-primary-500 text-white hover:bg-primary-600 transition-all"
-              >
-                Ekibi Çalıştır
-              </button>
-            )}
+            <div className="flex items-center justify-center gap-3">
+              {status === 'completed' && sessionId && (
+                <button
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  className="px-6 py-2 rounded-xl bg-primary-500 text-white hover:bg-primary-600 transition-all flex items-center gap-2"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Sonucu Al
+                </button>
+              )}
+              {status !== 'completed' && (
+                <button
+                  onClick={() => navigate('/execution')}
+                  className="px-6 py-2 rounded-xl bg-primary-500 text-white hover:bg-primary-600 transition-all"
+                >
+                  Ekibi Çalıştır
+                </button>
+              )}
+            </div>
           </div>
         )}
       </motion.div>
