@@ -445,13 +445,26 @@ function ModelStep({ availableModels, selectedModel, setModel }) {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className={`
-              p-6 rounded-2xl text-left transition-all
+              p-6 rounded-2xl text-left transition-all relative
               ${selectedModel === model.id
                 ? 'glass border-2 border-primary-500 glow-blue'
                 : 'glass border border-dark-700 hover:border-dark-600'
               }
             `}
           >
+            {/* Badge */}
+            {model.badge && (
+              <div className={`absolute top-3 right-3 px-2 py-0.5 rounded text-xs font-medium ${
+                model.badge === 'Önerilen' 
+                  ? 'bg-accent-500/20 text-accent-400 border border-accent-500/30'
+                  : model.badge === 'Pro'
+                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                    : 'bg-dark-700 text-dark-400'
+              }`}>
+                {model.badge}
+              </div>
+            )}
+            
             <div className="flex items-center gap-3 mb-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                 selectedModel === model.id ? 'bg-primary-500' : 'bg-dark-700'

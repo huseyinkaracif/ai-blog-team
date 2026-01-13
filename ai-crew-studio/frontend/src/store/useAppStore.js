@@ -11,7 +11,7 @@ export const useAppStore = create((set, get) => ({
   // Data
   agents: [],
   tasks: [],
-  selectedModel: "gemini-2.0-flash-lite",
+  selectedModel: "gemini-2.5-flash-preview-05-20",
   topic: "",
 
   // Execution state
@@ -141,22 +141,24 @@ export const useAppStore = create((set, get) => ({
       case "agent_completed":
       case "agent_communication":
       case "crew_started":
-      case "crew_completed":
       case "task_created":
       case "agent_created":
         addLog(message);
         break;
 
       case "crew_completed":
+        console.log("Crew completed!", message);
         set({
           result: message.result,
           isRunning: false,
           status: "completed",
+          currentStep: 5,
         });
         addLog(message);
         break;
 
       case "error":
+        console.error("Crew error:", message);
         set({ isRunning: false, status: "error" });
         addLog({ ...message, type: "error" });
         break;
@@ -232,13 +234,22 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
-  startCrew: async () => {
+  startCrew: async (apiKey) => {
     const { sessionId, topic } = get();
     if (!sessionId) return;
 
     set({ isRunning: true, status: "running", logs: [] });
 
     try {
+      // First, set the API key for this session
+      if (apiKey) {
+        await fetch(`${API_BASE}/sessions/${sessionId}/api-key`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ api_key: apiKey }),
+        });
+      }
+
       await fetch(`${API_BASE}/sessions/${sessionId}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -276,7 +287,7 @@ export const useAppStore = create((set, get) => ({
       status: "idle",
       agents: [],
       tasks: [],
-      selectedModel: "gemini-2.0-flash-lite",
+      selectedModel: "gemini-2.5-flash-preview-05-20",
       topic: "",
       logs: [],
       result: null,

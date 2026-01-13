@@ -13,9 +13,12 @@ import {
   FileText,
   Brain,
   Send,
-  Loader2
+  Loader2,
+  AlertCircle,
+  PartyPopper
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
+import { useSettingsStore } from '../store/useSettingsStore'
 
 const agentColors = [
   { bg: 'from-blue-500 to-cyan-500', glow: 'glow-blue', ring: 'ring-blue-500' },
@@ -49,13 +52,33 @@ export default function ExecutionPage() {
     result,
     startCrew
   } = useAppStore()
+  const { apiKey } = useSettingsStore()
   
   const [activeAgentIdx, setActiveAgentIdx] = useState(-1)
   const [connections, setConnections] = useState([])
+  const [countdown, setCountdown] = useState(null)
   
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [logs])
+  
+  // Auto navigate when completed
+  useEffect(() => {
+    if (status === 'completed' && result) {
+      setCountdown(3)
+      const timer = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            navigate('/result')
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [status, result, navigate])
   
   useEffect(() => {
     // Find active agent from logs
@@ -77,7 +100,7 @@ export default function ExecutionPage() {
   }, [logs, agents])
   
   const handleStart = async () => {
-    await startCrew()
+    await startCrew(apiKey)
   }
   
   const handleViewResult = () => {
@@ -237,14 +260,32 @@ export default function ExecutionPage() {
             )}
             
             {status === 'completed' && (
-              <button
-                onClick={handleViewResult}
-                className="px-8 py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold flex items-center gap-2 mx-auto hover:shadow-lg hover:shadow-green-500/25 transition-all"
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-center space-y-4"
               >
-                <FileText className="w-5 h-5" />
-                Sonucu Görüntüle
-                <ArrowRight className="w-5 h-5" />
-              </button>
+                <div className="flex items-center justify-center gap-3 text-accent-400 mb-4">
+                  <PartyPopper className="w-6 h-6" />
+                  <span className="text-lg font-semibold">İşlem Tamamlandı!</span>
+                  <PartyPopper className="w-6 h-6" />
+                </div>
+                
+                {countdown !== null && (
+                  <p className="text-sm text-dark-400">
+                    Sonuç sayfasına yönlendiriliyorsunuz... ({countdown})
+                  </p>
+                )}
+                
+                <button
+                  onClick={handleViewResult}
+                  className="px-8 py-4 rounded-xl bg-gradient-to-r from-accent-500 to-green-600 text-white font-semibold flex items-center gap-2 mx-auto hover:shadow-lg hover:shadow-accent-500/25 transition-all"
+                >
+                  <FileText className="w-5 h-5" />
+                  Sonucu Hemen Görüntüle
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </motion.div>
             )}
           </div>
         </div>

@@ -10,7 +10,10 @@ from datetime import datetime
 from crewai import Agent, Task, Crew, Process
 from langchain_google_genai import ChatGoogleGenerativeAI
 from crewai.tools import BaseTool
-from duckduckgo_search import DDGS
+try:
+    from ddgs import DDGS
+except ImportError:
+    from duckduckgo_search import DDGS
 
 # Environment setup
 os.environ.setdefault("OPENAI_API_KEY", "NA")
@@ -32,15 +35,29 @@ class TaskConfig:
 class InternetSearchTool(BaseTool):
     """DuckDuckGo internet search tool"""
     name: str = "Internet Search"
-    description: str = "İnternette güncel konuları aramak için kullanılır."
+    description: str = "İnternette güncel konuları aramak için kullanılır. Query parametresi ile arama terimi al."
 
     def _run(self, query: str) -> str:
         try:
-            with DDGS() as ddgs:
-                results = [r for r in ddgs.text(query, max_results=5)]
-                return str(results)
+            # Try with DDGS context manager
+            try:
+                ddgs = DDGS()
+                results = list(ddgs.text(query, max_results=3))
+            except:
+                # Fallback to direct instantiation
+                results = list(DDGS().text(query, max_results=3))
+            
+            if not results:
+                return "Arama sonucu bulunamadı. Lütfen farklı anahtar kelimeler deneyin."
+            
+            # Format results nicely
+            formatted = []
+            for i, r in enumerate(results, 1):
+                formatted.append(f"{i}. {r.get('title', 'No title')}\n{r.get('body', 'No description')[:200]}...\nURL: {r.get('href', '')}")
+            
+            return "\n\n".join(formatted)
         except Exception as e:
-            return f"Arama hatası: {str(e)}"
+            return f"Arama sırasında hata oluştu: {str(e)}. Farklı bir arama terimi deneyin."
 
 class WebScraperTool(BaseTool):
     """Simple web scraper tool"""
@@ -85,7 +102,12 @@ class CrewCallback:
         }
         self.logs.append(log_entry)
         if self.callback_fn:
-            self.callback_fn(log_entry)
+            # Call callback in a non-blocking way
+            try:
+                self.callback_fn(log_entry)
+            except Exception as e:
+                # Silently ignore callback errors to not interrupt execution
+                pass
     
     def agent_started(self, agent_name: str, task_description: str):
         self.log("agent_started", {
@@ -131,7 +153,13 @@ class CrewManager:
                  callback: Optional[Callable] = None,
                  api_key: Optional[str] = None):
         self.model_name = model_name
-        self.api_key = api_key or os.environ.get("GOOGLE_API_KEY")
+        self.api_key = api_key or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+        
+        # Set environment variables for CrewAI/LangChain compatibility
+        if self.api_key:
+            os.environ["GOOGLE_API_KEY"] = self.api_key
+            os.environ["GEMINI_API_KEY"] = self.api_key
+        
         self.agents: List[Agent] = []
         self.tasks: List[Task] = []
         self.agent_configs: List[AgentConfig] = []
@@ -141,11 +169,22 @@ class CrewManager:
     
     def _init_llm(self):
         """Initialize the LLM"""
+        if not self.api_key:
+            raise ValueError("Google API key is required. Please set it in Settings.")
+        
         self.llm = ChatGoogleGenerativeAI(
             model=self.model_name,
             verbose=True,
-            temperature=0.5,
-            google_api_key=self.api_key
+            temperature=0.7,
+            max_output_tokens=2048,
+            google_api_key=self.api_key,
+            convert_system_message_to_human=True,
+            safety_settings={
+                "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE",
+                "HARM_CATEGORY_HATE_SPEECH": "BLOCK_NONE",
+                "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
+                "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE"
+            }
         )
     
     def add_agent(self, config: AgentConfig):

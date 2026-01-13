@@ -67,6 +67,7 @@ class SessionState(BaseModel):
     agents: List[dict] = []
     tasks: List[dict] = []
     model: str = ""
+    api_key: str = ""
     current_step: int = 0
     logs: List[dict] = []
     result: Optional[str] = None
@@ -102,10 +103,10 @@ app.add_middleware(
 
 # Available Gemini Models
 AVAILABLE_MODELS = [
-    {"id": "gemini-2.0-flash-lite", "name": "Gemini 2.0 Flash Lite", "description": "Hızlı ve ekonomik"},
-    {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "description": "Dengeli performans"},
-    {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "description": "Hızlı yanıt"},
-    {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "description": "Gelişmiş yetenekler"},
+    {"id": "gemini-2.5-flash-preview-05-20", "name": "Gemini 2.5 Flash", "description": "HIZLI VE AKILLI", "badge": "Önerilen"},
+    {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "description": "İKİNCİ NESİL ÇALIŞKAN", "badge": ""},
+    {"id": "gemini-2.5-pro-preview-06-05", "name": "Gemini 2.5 Pro", "description": "EN AKILLI", "badge": "Pro"},
+    {"id": "gemini-2.5-flash-lite-preview-06-17", "name": "Gemini 2.5 Flash Lite", "description": "EN DENGELİ", "badge": ""},
 ]
 
 # Available Tools
@@ -125,6 +126,32 @@ async def get_models():
 @app.get("/api/tools")
 async def get_tools():
     return {"tools": AVAILABLE_TOOLS}
+
+# Settings - API Key validation
+class ApiKeyRequest(BaseModel):
+    api_key: str
+
+@app.post("/api/settings/validate-key")
+async def validate_api_key(request: ApiKeyRequest):
+    """Validate Gemini API key by making a test request"""
+    import google.generativeai as genai
+    try:
+        genai.configure(api_key=request.api_key)
+        # Quick test to validate key
+        model = genai.GenerativeModel('gemini-2.0-flash-lite')
+        response = model.generate_content("Say 'OK'", generation_config={"max_output_tokens": 10})
+        return {"valid": True, "message": "API anahtarı geçerli"}
+    except Exception as e:
+        return {"valid": False, "message": f"API anahtarı geçersiz: {str(e)}"}
+
+@app.post("/api/sessions/{session_id}/api-key")
+async def set_api_key(session_id: str, request: ApiKeyRequest):
+    """Set API key for a session"""
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    sessions[session_id].api_key = request.api_key
+    return {"status": "success"}
 
 @app.post("/api/sessions")
 async def create_session():
@@ -215,12 +242,23 @@ async def run_crew(session_id: str, topic: str):
     session = sessions[session_id]
     
     try:
-        # Initialize CrewManager
+        # Callback function to send messages
+        def send_update(msg):
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.ensure_future(manager.send_message(session_id, msg))
+                else:
+                    loop.create_task(manager.send_message(session_id, msg))
+            except Exception:
+                # Ignore callback errors to not interrupt execution
+                pass
+        
+        # Initialize CrewManager with API key from session
         crew_manager = CrewManager(
             model_name=session.model,
-            callback=lambda msg: asyncio.create_task(
-                manager.send_message(session_id, msg)
-            )
+            callback=send_update,
+            api_key=session.api_key if session.api_key else None
         )
         
         # Create agents
